@@ -17,7 +17,7 @@ This problem is important because programming skill is influenced by multiple fa
 Uncertainty modeling is important here because these relationships are not fixed or predictable. Fixed relationships assume that variables are connected by exact rules (e.g., skill always increases linearly with experience), whereas in reality these relationships are uncertain and vary across individuals. For example, two developers with the same experience level may have different skill levels depending on their level of reliance on AI tools and how frequently they use them. This kind of variability makes it difficult to model the problem using simple deterministic methods.
 Non-probabilistic approaches, such as basic regression models, assume fixed relationships between variables and do not capture uncertainty or conditional dependencies well. In contrast, Bayesian networks allow us to model how different factors influence each other and reason about probabilities, making them a better fit for this problem.
 
-##PEAS Analysis
+## PEAS Analysis
 Performance measure: accuracy of determining programming skill and speed of computing output
 Environment: set of developers
 Actuators: display of an individual’s probabilistic programming skill
