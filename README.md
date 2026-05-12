@@ -2,9 +2,10 @@
 
 ## Team Members
 - Lianna Lim
-- Iha
-- Ioanna
-- Ved
+- Ved Panse
+- William Diego
+- Ioanna Gkerdouki
+- Iha Gadiya
 
 ## Dataset
 
