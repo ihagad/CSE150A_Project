@@ -1,0 +1,8 @@
+pandas
+numpy
+scikit-learn
+scipy
+pgmpy
+networkx
+matplotlib
+kagglehub
