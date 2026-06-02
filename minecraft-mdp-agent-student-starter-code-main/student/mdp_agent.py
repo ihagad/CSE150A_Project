@@ -21,7 +21,7 @@ The two algorithms complement each other:
   • VI searches the continuous space of value functions. Asymptotic convergence.
 Your writeup should compare them on the same T̂.
 
-TODO blocks you must implement (search for "TODO" in this file):
+Planner blocks implemented in this file:
   • policy_iteration()   — the function itself, plus _evaluate_policy() and
                            _improve_policy() helpers.
   • value_iteration()    — the Bellman-optimality fixed-point iteration.
@@ -241,7 +241,13 @@ def _evaluate_policy(policy, T, R, states, gamma, eval_sweeps=50, eval_theta=1e-
             #   V.get(s_prime, 0.0)       # current estimate; default 0 for unseen
             # ─────────────────────────────────────────────────────
 
-            pass  # remove when you add your code
+            new_value = 0.0
+            for probability, s_prime in T.get_transitions(s, a):
+                new_value += probability * (
+                    R(s, a, s_prime) + gamma * V.get(s_prime, 0.0)
+                )
+
+            V[s] = new_value
 
             delta = max(delta, abs(V[s] - v_old))
         if delta < eval_theta:
@@ -263,7 +269,6 @@ def _improve_policy(policy, V, T, R, states, num_actions, gamma):
     changed = False
     for s in states:
         old_action = policy[s]
-
         # ── TODO ─────────────────────────────────────────────
         # Pick the greedy action for state s given the current V, then
         # assign it to new_policy[s]. Set `changed = True` if the chosen
@@ -275,7 +280,23 @@ def _improve_policy(policy, V, T, R, states, num_actions, gamma):
         # compute the Q-value of each candidate action.
         # ─────────────────────────────────────────────────────
 
-        pass  # remove when you add your code
+        best_action = old_action
+        best_value = float("-inf")
+
+        for a in range(num_actions):
+            q_value = 0.0
+            for probability, s_prime in T.get_transitions(s, a):
+                q_value += probability * (
+                    R(s, a, s_prime) + gamma * V.get(s_prime, 0.0)
+                )
+
+            if q_value > best_value:
+                best_value = q_value
+                best_action = a
+
+        new_policy[s] = best_action
+        if best_action != old_action:
+            changed = True
 
     return new_policy, changed
 
@@ -297,7 +318,15 @@ def policy_iteration(T, R, states, num_actions, gamma=GAMMA, max_iterations=100)
     # reached. Return (policy, V) once converged.
     # ─────────────────────────────────────────────────────────────
 
-    return policy, V  # placeholder — replace with your loop
+    for _ in range(max_iterations):
+        V = _evaluate_policy(policy, T, R, states, gamma)
+        policy, changed = _improve_policy(
+            policy, V, T, R, states, num_actions, gamma
+        )
+        if not changed:
+            break
+
+    return policy, V
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -334,7 +363,45 @@ def value_iteration(T, R, states, num_actions, gamma=GAMMA,
     # Return (policy, V).
     # ─────────────────────────────────────────────────────────────
 
-    return policy, V  # placeholder — replace with your loop
+    for _ in range(max_iterations):
+        delta = 0.0
+        new_V = {}
+
+        for s in states:
+            best_value = float("-inf")
+            for a in range(num_actions):
+                q_value = 0.0
+                for probability, s_prime in T.get_transitions(s, a):
+                    q_value += probability * (
+                        R(s, a, s_prime) + gamma * V.get(s_prime, 0.0)
+                    )
+                best_value = max(best_value, q_value)
+
+            new_V[s] = best_value
+            delta = max(delta, abs(new_V[s] - V[s]))
+
+        V.update(new_V)
+        if delta < theta:
+            break
+
+    for s in states:
+        best_action = 0
+        best_value = float("-inf")
+
+        for a in range(num_actions):
+            q_value = 0.0
+            for probability, s_prime in T.get_transitions(s, a):
+                q_value += probability * (
+                    R(s, a, s_prime) + gamma * V.get(s_prime, 0.0)
+                )
+
+            if q_value > best_value:
+                best_value = q_value
+                best_action = a
+
+        policy[s] = best_action
+
+    return policy, V
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -405,11 +472,31 @@ def run():
     episode_rewards = []
 
     for episode in range(resume_episode, resume_episode + NUM_EPISODES):
+        print(f"\n═══ Episode {episode + 1}/{resume_episode + NUM_EPISODES} ═══",
+              flush=True)
         state, info = env.reset()
         available = info.get("available_actions", frozenset(range(NUM_ACTIONS)))
         all_states.add(state)
         total_reward = 0.0
         done = False
+
+        raw = info.get("raw_state") or env.get_raw_state()
+        inv_preview = ", ".join(
+            f"{name}×{count}"
+            for name, count in sorted(
+                raw.get("inventory", {}).items(), key=lambda kv: -kv[1]
+            )[:5]
+        ) or "(empty)"
+        print(f"  reset -> state={state}  available_actions={len(available)}",
+              flush=True)
+        print(f"  position: ({raw.get('x')}, {raw.get('y')}, {raw.get('z')})",
+              flush=True)
+        print(f"  health:   {raw.get('health_raw')} (bin={raw.get('health_bin')})",
+              flush=True)
+        print(f"  inventory top 5: {inv_preview}", flush=True)
+        print(f"  flags: water_adjacent={raw.get('water_adjacent')} "
+              f"has_table_nearby={raw.get('has_table_nearby')} "
+              f"on_grass={raw.get('on_grass')}", flush=True)
 
         while not done:
             # ε-greedy action selection with action-masking
@@ -429,6 +516,12 @@ def run():
             total_reward += reward
             state = next_state
             available = next_available
+
+            step = info.get("step", 0)
+            if step <= 3 or step % 20 == 0 or done:
+                print(f"  step {step:3d}: {info.get('action_name', action):22s} "
+                      f"-> reward={reward:+.2f}  total={total_reward:+.2f}  "
+                      f"state={next_state}", flush=True)
 
         epsilon = max(0.05, epsilon * 0.995)
         episode_rewards.append(total_reward)

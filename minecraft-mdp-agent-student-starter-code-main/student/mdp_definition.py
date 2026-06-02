@@ -62,7 +62,22 @@ def state_fn(raw: dict) -> tuple:
     tuple
         Hashable state representation. Must have the SAME shape every call.
     """
-    raise NotImplementedError("Implement state_fn: convert raw observation to a state tuple")
+    gx = (raw.get("grid_x") or 0) // BUCKET_SIZE
+    gz = (raw.get("grid_z") or 0) // BUCKET_SIZE
+
+    return (
+        gx,
+        gz,
+        int(raw.get("health_bin", 3)),
+        int(raw.get("food_bin", 3)),
+        bool(raw.get("has_wood", False)),
+        bool(raw.get("has_planks", False)),
+        bool(raw.get("has_table_nearby", False)),
+        bool(raw.get("has_wood_tools", False)),
+        bool(raw.get("has_stone_tools", False)),
+        bool(raw.get("has_food", False)),
+        bool(raw.get("has_sticks", False)),
+    )
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -83,7 +98,58 @@ def reward_fn(old_state: tuple, action: int, new_state: tuple) -> float:
     -------
     float : Scalar reward.
     """
-    raise NotImplementedError("Implement reward_fn: define rewards for transitions")
+    # Small step cost: encourages the bot to make progress instead of
+    # wandering forever, but is small enough that long plans can still win.
+    reward = -0.1
+
+    old_gx, old_gz = old_state[0], old_state[1]
+    new_gx, new_gz = new_state[0], new_state[1]
+    old_health, new_health = old_state[2], new_state[2]
+    old_food, new_food = old_state[3], new_state[3]
+
+    # Reward health/food improvements and penalize drops. The extra health
+    # penalty makes danger more costly than the linear health-bin change alone.
+    reward += 2.0 * (new_health - old_health)
+    reward += 1.0 * (new_food - old_food)
+
+    if new_health < old_health:
+        reward -= 3.0
+
+    # Tiny exploration bonus when the bot reaches a different position bucket.
+    if (new_gx, new_gz) != (old_gx, old_gz):
+        reward += 0.1
+
+    # One-time progress rewards for useful tech-tree state transitions.
+    # These only fire when the state bit changes from False to True.
+    if not old_state[4] and new_state[4]:
+        # Collected wood, the first resource needed for crafting.
+        reward += 5.0
+
+    if not old_state[5] and new_state[5]:
+        # Crafted or obtained planks from wood.
+        reward += 8.0
+
+    if not old_state[10] and new_state[10]:
+        # Crafted or obtained sticks for tools.
+        reward += 6.0
+
+    if not old_state[6] and new_state[6]:
+        # Reached a nearby crafting table, which enables larger recipes.
+        reward += 4.0
+
+    if not old_state[7] and new_state[7]:
+        # Obtained a wooden pickaxe tier tool.
+        reward += 15.0
+
+    if not old_state[8] and new_state[8]:
+        # Obtained a stone pickaxe tier tool, unlocking stronger mining.
+        reward += 25.0
+
+    if not old_state[9] and new_state[9]:
+        # Found or created food, which helps survival.
+        reward += 6.0
+
+    return reward
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
