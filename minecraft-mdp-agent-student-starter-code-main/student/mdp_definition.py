@@ -40,6 +40,7 @@ GAMMA = 0.99          # Discount factor
 MAX_STEPS = 500       # Max steps per episode before truncation
 NUM_EPISODES = 100    # Training episodes
 BUCKET_SIZE = 10      # Grid bucketing (blocks per cell) for position discretization
+Y_BUCKET_SIZE = 4     # Vertical bucketing so holes/caves are visible to the MDP
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -64,19 +65,21 @@ def state_fn(raw: dict) -> tuple:
     """
     gx = (raw.get("grid_x") or 0) // BUCKET_SIZE
     gz = (raw.get("grid_z") or 0) // BUCKET_SIZE
+    y_bucket = (raw.get("y") or 0) // Y_BUCKET_SIZE
 
     return (
         gx,
         gz,
+        y_bucket,
         int(raw.get("health_bin", 3)),
         int(raw.get("food_bin", 3)),
         bool(raw.get("has_wood", False)),
         bool(raw.get("has_planks", False)),
+        bool(raw.get("has_sticks", False)),
+        bool(raw.get("has_stone", False)),
         bool(raw.get("has_table_nearby", False)),
         bool(raw.get("has_wood_tools", False)),
         bool(raw.get("has_stone_tools", False)),
-        bool(raw.get("has_food", False)),
-        bool(raw.get("has_sticks", False)),
     )
 
 
@@ -104,8 +107,9 @@ def reward_fn(old_state: tuple, action: int, new_state: tuple) -> float:
 
     old_gx, old_gz = old_state[0], old_state[1]
     new_gx, new_gz = new_state[0], new_state[1]
-    old_health, new_health = old_state[2], new_state[2]
-    old_food, new_food = old_state[3], new_state[3]
+    old_y, new_y = old_state[2], new_state[2]
+    old_health, new_health = old_state[3], new_state[3]
+    old_food, new_food = old_state[4], new_state[4]
 
     # Reward health/food improvements and penalize drops. The extra health
     # penalty makes danger more costly than the linear health-bin change alone.
@@ -115,39 +119,53 @@ def reward_fn(old_state: tuple, action: int, new_state: tuple) -> float:
     if new_health < old_health:
         reward -= 3.0
 
-    # Tiny exploration bonus when the bot reaches a different position bucket.
+    # Penalize actions that fail to change the abstract state. This makes loops,
+    # noops, and failed digging/placing less attractive to the planner.
+    if old_state == new_state:
+        reward -= 0.25
+
+    # Exploration bonus when the bot reaches a different horizontal bucket.
     if (new_gx, new_gz) != (old_gx, old_gz):
-        reward += 0.1
+        reward += 0.3
+
+    # Vertical escape shaping. Climbing upward is useful when the bot is stuck
+    # underground or in a hole; moving downward is usually a riskier detour.
+    if new_y > old_y:
+        reward += 2.0
+        if old_y < 16:
+            reward += 1.0
+    elif new_y < old_y:
+        reward -= 1.0
 
     # One-time progress rewards for useful tech-tree state transitions.
     # These only fire when the state bit changes from False to True.
-    if not old_state[4] and new_state[4]:
+    if not old_state[5] and new_state[5]:
         # Collected wood, the first resource needed for crafting.
         reward += 5.0
 
-    if not old_state[5] and new_state[5]:
+    if not old_state[6] and new_state[6]:
         # Crafted or obtained planks from wood.
         reward += 8.0
 
-    if not old_state[10] and new_state[10]:
+    if not old_state[7] and new_state[7]:
         # Crafted or obtained sticks for tools.
         reward += 6.0
 
-    if not old_state[6] and new_state[6]:
+    if not old_state[8] and new_state[8]:
+        # Collected cobblestone/stone for climbing, furnaces, and stone tools.
+        reward += 10.0
+
+    if not old_state[9] and new_state[9]:
         # Reached a nearby crafting table, which enables larger recipes.
         reward += 4.0
 
-    if not old_state[7] and new_state[7]:
+    if not old_state[10] and new_state[10]:
         # Obtained a wooden pickaxe tier tool.
         reward += 15.0
 
-    if not old_state[8] and new_state[8]:
+    if not old_state[11] and new_state[11]:
         # Obtained a stone pickaxe tier tool, unlocking stronger mining.
         reward += 25.0
-
-    if not old_state[9] and new_state[9]:
-        # Found or created food, which helps survival.
-        reward += 6.0
 
     return reward
 
