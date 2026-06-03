@@ -41,6 +41,8 @@ MAX_STEPS = 500       # Max steps per episode before truncation
 NUM_EPISODES = 100    # Training episodes
 BUCKET_SIZE = 10      # Grid bucketing (blocks per cell) for position discretization
 Y_BUCKET_SIZE = 4     # Vertical bucketing so holes/caves are visible to the MDP
+WOOD_BUCKET_SIZE = 4  # Logs per bucket; caps repeated wood reward at 12+ logs
+MAX_WOOD_BUCKET = 3
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -66,6 +68,13 @@ def state_fn(raw: dict) -> tuple:
     gx = (raw.get("grid_x") or 0) // BUCKET_SIZE
     gz = (raw.get("grid_z") or 0) // BUCKET_SIZE
     y_bucket = (raw.get("y") or 0) // Y_BUCKET_SIZE
+    inventory = raw.get("inventory", {})
+    wood_count = sum(
+        count
+        for item, count in inventory.items()
+        if item.endswith("_log") or item.endswith("_stem")
+    )
+    wood_bucket = min(wood_count // WOOD_BUCKET_SIZE, MAX_WOOD_BUCKET)
 
     return (
         gx,
@@ -73,7 +82,7 @@ def state_fn(raw: dict) -> tuple:
         y_bucket,
         int(raw.get("health_bin", 3)),
         int(raw.get("food_bin", 3)),
-        bool(raw.get("has_wood", False)),
+        wood_bucket,
         bool(raw.get("has_planks", False)),
         bool(raw.get("has_sticks", False)),
         bool(raw.get("has_stone", False)),
@@ -139,9 +148,9 @@ def reward_fn(old_state: tuple, action: int, new_state: tuple) -> float:
 
     # One-time progress rewards for useful tech-tree state transitions.
     # These only fire when the state bit changes from False to True.
-    if not old_state[5] and new_state[5]:
-        # Collected wood, the first resource needed for crafting.
-        reward += 5.0
+    if new_state[5] > old_state[5]:
+        # Reward useful wood stockpiling up to the cap, then stop rewarding it.
+        reward += 2.0 * (new_state[5] - old_state[5])
 
     if not old_state[6] and new_state[6]:
         # Crafted or obtained planks from wood.
