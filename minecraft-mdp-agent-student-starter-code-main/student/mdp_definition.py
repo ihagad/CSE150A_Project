@@ -40,6 +40,7 @@ GAMMA = 0.99          # Discount factor
 MAX_STEPS = 500       # Max steps per episode before truncation
 NUM_EPISODES = 100    # Training episodes
 BUCKET_SIZE = 10      # Grid bucketing (blocks per cell) for position discretization
+Y_BUCKET_SIZE = 4     # Vertical bucketing so holes/caves are visible to the MDP
 WOOD_BUCKET_SIZE = 4  # Logs per bucket; caps repeated wood reward at 12+ logs
 MAX_WOOD_BUCKET = 3
 
@@ -70,6 +71,7 @@ def state_fn(raw: dict) -> tuple:
     """
     gx = (raw.get("grid_x") or 0) // BUCKET_SIZE
     gz = (raw.get("grid_z") or 0) // BUCKET_SIZE
+    y_bucket = (raw.get("y") or 0) // Y_BUCKET_SIZE
     inventory = raw.get("inventory", {})
     wood_count = sum(
         count
@@ -81,6 +83,7 @@ def state_fn(raw: dict) -> tuple:
     return (
         gx,
         gz,
+        y_bucket,
         int(raw.get("health_bin", 3)),
         int(raw.get("food_bin", 3)),
         wood_bucket,
@@ -128,7 +131,18 @@ def reward_fn(old_state: tuple, action: int, new_state: tuple) -> float:
 
     if new_health < old_health:
         reward -= 3.0
+    if new_food < old_food:
+        reward -= 1.0
 
+    if new_health == 0 and new_food <= 1:
+        reward -= 2.0
+
+    if new_y < 14 and new_state[4] <= 1:  # underground + low/no food
+        reward -= 5.0
+        if action in [162, 163]:  # mine_above, dig_above
+            reward += 2.0
+        if new_state[2] > old_state[2]:  # y increased
+            reward += 3.0
     # Penalize actions that fail to change the abstract state. This makes loops,
     # noops, and failed digging/placing less attractive to the planner.
     if old_state == new_state:
@@ -138,12 +152,31 @@ def reward_fn(old_state: tuple, action: int, new_state: tuple) -> float:
     if (new_gx, new_gz) != (old_gx, old_gz):
         reward += 0.3
 
+    if (new_gx, new_gz) != (old_gx, old_gz) and (new_state[5] == 0 or not new_state[10]):
+        reward -= 0.5
+
     # Shape escape behavior: digging down tends to trap the bot, while the
     # pillar-jump action is the intended way to climb out of holes.
-    if action in (ACTION_DIG_BELOW):
+    if action == ACTION_DIG_BELOW:
         reward -= 3.0
 
     if action == ACTION_CLIMB_UP:
+        reward += 2.0
+
+    # Vertical escape shaping. Climbing upward is useful when the bot is stuck
+    # underground or in a hole; moving downward is usually a riskier detour.
+    if new_y > old_y:
+        reward += 2.0
+        if old_y < 16:
+            reward += 1.0
+    elif new_y < old_y:
+        reward -= 1.0
+
+    # Going down before obtaining wood tools is risky, but controlled descent
+    # with tools can help the bot reach useful stone.
+    if new_y < old_y and not new_state[10]:
+        reward -= 2.0
+    elif new_y < old_y:
         reward += 2.0
 
     # One-time progress rewards for useful tech-tree state transitions.
@@ -164,9 +197,12 @@ def reward_fn(old_state: tuple, action: int, new_state: tuple) -> float:
         # Collected cobblestone/stone for climbing, furnaces, and stone tools.
         reward += 10.0
 
-    if not old_state[9] and new_state[9]:
+    if ((action == ACTION_MINE_BELOW and new_y < old_y) or (action in [5, 70])) and new_state[10] and not old_state[8]:
+        reward += 2.0
+
+    if not old_state[9] and new_state[9] and new_state[6] and new_state[7]:
         # Reached a nearby crafting table, which enables larger recipes.
-        reward += 4.0
+        reward += 8.0
 
     if not old_state[10] and new_state[10]:
         # Obtained a wooden pickaxe tier tool.
@@ -192,6 +228,10 @@ def terminal_fn(state: tuple, step_count: int) -> bool:
     state      : tuple — Current state
     step_count : int   — Steps taken this episode
     """
+
+    if state[3] == 0:
+        return True
+
     return False
 
 
