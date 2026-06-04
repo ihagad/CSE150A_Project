@@ -40,13 +40,41 @@ GAMMA = 0.99          # Discount factor
 MAX_STEPS = 500       # Max steps per episode before truncation
 NUM_EPISODES = 100    # Training episodes
 BUCKET_SIZE = 10      # Grid bucketing (blocks per cell) for position discretization
-Y_BUCKET_SIZE = 4     # Vertical bucketing so holes/caves are visible to the MDP
 WOOD_BUCKET_SIZE = 4  # Logs per bucket; caps repeated wood reward at 12+ logs
 MAX_WOOD_BUCKET = 3
 
-ACTION_MINE_BELOW = 4
 ACTION_CLIMB_UP = 50
 ACTION_DIG_BELOW = 161
+ACTION_CRAFT_PLANKS = 8
+ACTION_CRAFT_WOODEN_PICKAXE = 11
+ACTION_CRAFT_STONE_PICKAXE = 12
+ACTION_GET_WOOD = 17
+ACTION_CHOP_WOOD = 18
+ACTION_MINE_COAL = 23
+ACTION_MINE_IRON = 24
+ACTION_MINE_DIAMOND = 29
+ACTION_SMELT_COLLECT = 37
+ACTION_SMELT_IRON_START = 100
+ACTION_CRAFT_IRON_PICKAXE = 77
+
+STATE_GX = 0
+STATE_GZ = 1
+STATE_HEALTH = 2
+STATE_FOOD = 3
+STATE_WOOD_BUCKET = 4
+STATE_HAS_PLANKS = 5
+STATE_HAS_STICKS = 6
+STATE_HAS_STONE = 7
+STATE_HAS_RAW_IRON = 9
+STATE_HAS_TABLE_NEARBY = 11
+STATE_HAS_WOOD_PICKAXE = 12
+STATE_HAS_STONE_PICKAXE = 13
+STATE_HAS_IRON_PICKAXE = 14
+
+
+def _inventory_has_any(inventory: dict, names: tuple) -> bool:
+    """Return whether any named item is present in inventory."""
+    return any(inventory.get(name, 0) > 0 for name in names)
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -71,7 +99,6 @@ def state_fn(raw: dict) -> tuple:
     """
     gx = (raw.get("grid_x") or 0) // BUCKET_SIZE
     gz = (raw.get("grid_z") or 0) // BUCKET_SIZE
-    y_bucket = (raw.get("y") or 0) // Y_BUCKET_SIZE
     inventory = raw.get("inventory", {})
     wood_count = sum(
         count
@@ -79,20 +106,25 @@ def state_fn(raw: dict) -> tuple:
         if item.endswith("_log") or item.endswith("_stem")
     )
     wood_bucket = min(wood_count // WOOD_BUCKET_SIZE, MAX_WOOD_BUCKET)
+    has_raw_iron = _inventory_has_any(
+        inventory,
+        ("raw_iron", "raw_iron_block", "iron_ore", "deepslate_iron_ore"),
+    )
 
     return (
         gx,
         gz,
-        y_bucket,
         int(raw.get("health_bin", 3)),
         int(raw.get("food_bin", 3)),
         wood_bucket,
         bool(raw.get("has_planks", False)),
         bool(raw.get("has_sticks", False)),
         bool(raw.get("has_stone", False)),
+        has_raw_iron,
         bool(raw.get("has_table_nearby", False)),
-        bool(raw.get("has_wood_tools", False)),
-        bool(raw.get("has_stone_tools", False)),
+        inventory.get("wooden_pickaxe", 0) > 0,
+        inventory.get("stone_pickaxe", 0) > 0,
+        inventory.get("iron_pickaxe", 0) > 0,
     )
 
 
@@ -118,11 +150,10 @@ def reward_fn(old_state: tuple, action: int, new_state: tuple) -> float:
     # wandering forever, but is small enough that long plans can still win.
     reward = -0.1
 
-    old_gx, old_gz = old_state[0], old_state[1]
-    new_gx, new_gz = new_state[0], new_state[1]
-    old_y, new_y = old_state[2], new_state[2]
-    old_health, new_health = old_state[3], new_state[3]
-    old_food, new_food = old_state[4], new_state[4]
+    old_gx, old_gz = old_state[STATE_GX], old_state[STATE_GZ]
+    new_gx, new_gz = new_state[STATE_GX], new_state[STATE_GZ]
+    old_health, new_health = old_state[STATE_HEALTH], new_state[STATE_HEALTH]
+    old_food, new_food = old_state[STATE_FOOD], new_state[STATE_FOOD]
 
     # Reward health/food improvements and penalize drops. The extra health
     # penalty makes danger more costly than the linear health-bin change alone.
@@ -137,12 +168,6 @@ def reward_fn(old_state: tuple, action: int, new_state: tuple) -> float:
     if new_health == 0 and new_food <= 1:
         reward -= 2.0
 
-    if new_y < 14 and new_state[4] <= 1:  # underground + low/no food
-        reward -= 5.0
-        if action in [162, 163]:  # mine_above, dig_above
-            reward += 2.0
-        if new_state[2] > old_state[2]:  # y increased
-            reward += 3.0
     # Penalize actions that fail to change the abstract state. This makes loops,
     # noops, and failed digging/placing less attractive to the planner.
     if old_state == new_state:
@@ -152,7 +177,13 @@ def reward_fn(old_state: tuple, action: int, new_state: tuple) -> float:
     if (new_gx, new_gz) != (old_gx, old_gz):
         reward += 0.3
 
-    if (new_gx, new_gz) != (old_gx, old_gz) and (new_state[5] == 0 or not new_state[10]):
+    if (
+        (new_gx, new_gz) != (old_gx, old_gz)
+        and (
+            new_state[STATE_WOOD_BUCKET] == 0
+            or not new_state[STATE_HAS_WOOD_PICKAXE]
+        )
+    ):
         reward -= 0.5
 
     # Shape escape behavior: digging down tends to trap the bot, while the
@@ -163,54 +194,85 @@ def reward_fn(old_state: tuple, action: int, new_state: tuple) -> float:
     if action == ACTION_CLIMB_UP:
         reward += 2.0
 
-    # Vertical escape shaping. Climbing upward is useful when the bot is stuck
-    # underground or in a hole; moving downward is usually a riskier detour.
-    if new_y > old_y:
-        reward += 2.0
-        if old_y < 16:
-            reward += 1.0
-    elif new_y < old_y:
-        reward -= 1.0
-
-    # Going down before obtaining wood tools is risky, but controlled descent
-    # with tools can help the bot reach useful stone.
-    if new_y < old_y and not new_state[10]:
-        reward -= 2.0
-    elif new_y < old_y:
-        reward += 2.0
-
     # One-time progress rewards for useful tech-tree state transitions.
     # These only fire when the state bit changes from False to True.
-    if new_state[5] > old_state[5]:
-        # Reward useful wood stockpiling up to the cap, then stop rewarding it.
-        reward += 2.0 * (new_state[5] - old_state[5])
+    if (
+        action in (ACTION_GET_WOOD, ACTION_CHOP_WOOD)
+        and new_state[STATE_WOOD_BUCKET] > old_state[STATE_WOOD_BUCKET]
+    ):
+        # Reward successful wood mining/chopping up to the cap.
+        reward += 4.0 * (
+            new_state[STATE_WOOD_BUCKET] - old_state[STATE_WOOD_BUCKET]
+        )
 
-    if not old_state[6] and new_state[6]:
-        # Crafted or obtained planks from wood.
-        reward += 8.0
+    if (
+        action == ACTION_CRAFT_PLANKS
+        and not old_state[STATE_HAS_PLANKS]
+        and new_state[STATE_HAS_PLANKS]
+    ):
+        # Reward crafting planks from wood, only when planks newly appear.
+        reward += 8.0  
+    elif (action == ACTION_CRAFT_PLANKS):
+        reward += 2.0    
 
-    if not old_state[7] and new_state[7]:
+
+    if not old_state[STATE_HAS_STICKS] and new_state[STATE_HAS_STICKS]:
         # Crafted or obtained sticks for tools.
         reward += 6.0
 
-    if not old_state[8] and new_state[8]:
+    if not old_state[STATE_HAS_STONE] and new_state[STATE_HAS_STONE]:
         # Collected cobblestone/stone for climbing, furnaces, and stone tools.
         reward += 10.0
 
-    if ((action == ACTION_MINE_BELOW and new_y < old_y) or (action in [5, 70])) and new_state[10] and not old_state[8]:
-        reward += 2.0
+    if action == ACTION_MINE_COAL:
+        # Successfully mined coal with a wooden+ pickaxe.
+        reward += 12.0
 
-    if not old_state[9] and new_state[9] and new_state[6] and new_state[7]:
+    if action == ACTION_MINE_IRON:
+        # Successfully mined raw iron or iron ore with a stone+ pickaxe.
+        reward += 16.0
+
+    if action == ACTION_MINE_DIAMOND:
+        # Very large reward for successfully mining the first diamond.
+        reward += 100.0
+
+    if action in (ACTION_SMELT_COLLECT, ACTION_SMELT_IRON_START):
+        # Iron smelting is credited when the ingot reaches inventory, which
+        # usually happens on the furnace collect step after smelt_iron_start.
+        reward += 20.0
+
+    if (
+        not old_state[STATE_HAS_TABLE_NEARBY]
+        and new_state[STATE_HAS_TABLE_NEARBY]
+        and new_state[STATE_HAS_PLANKS]
+        and new_state[STATE_HAS_STICKS]
+    ):
         # Reached a nearby crafting table, which enables larger recipes.
         reward += 8.0
 
-    if not old_state[10] and new_state[10]:
-        # Obtained a wooden pickaxe tier tool.
+    if (
+        action == ACTION_CRAFT_WOODEN_PICKAXE
+        and not old_state[STATE_HAS_WOOD_PICKAXE]
+        and new_state[STATE_HAS_WOOD_PICKAXE]
+    ):
+        # Reward crafting the first wooden pickaxe only.
         reward += 15.0
 
-    if not old_state[11] and new_state[11]:
-        # Obtained a stone pickaxe tier tool, unlocking stronger mining.
+    if (
+        action == ACTION_CRAFT_STONE_PICKAXE
+        and not old_state[STATE_HAS_STONE_PICKAXE]
+        and new_state[STATE_HAS_STONE_PICKAXE]
+    ):
+        # Reward crafting the first stone pickaxe only.
         reward += 25.0
+
+    if (
+        action == ACTION_CRAFT_IRON_PICKAXE
+        and not old_state[STATE_HAS_IRON_PICKAXE]
+        and new_state[STATE_HAS_IRON_PICKAXE]
+    ):
+        # Reward crafting the first iron pickaxe only.
+        reward += 35.0
 
     return reward
 
@@ -229,7 +291,7 @@ def terminal_fn(state: tuple, step_count: int) -> bool:
     step_count : int   — Steps taken this episode
     """
 
-    if state[3] == 0:
+    if state[STATE_HEALTH] == 0:
         return True
 
     return False
