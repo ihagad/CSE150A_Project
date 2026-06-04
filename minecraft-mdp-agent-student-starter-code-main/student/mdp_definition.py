@@ -40,9 +40,12 @@ GAMMA = 0.99          # Discount factor
 MAX_STEPS = 500       # Max steps per episode before truncation
 NUM_EPISODES = 100    # Training episodes
 BUCKET_SIZE = 10      # Grid bucketing (blocks per cell) for position discretization
-Y_BUCKET_SIZE = 4     # Vertical bucketing so holes/caves are visible to the MDP
 WOOD_BUCKET_SIZE = 4  # Logs per bucket; caps repeated wood reward at 12+ logs
 MAX_WOOD_BUCKET = 3
+
+ACTION_MINE_BELOW = 4
+ACTION_CLIMB_UP = 50
+ACTION_DIG_BELOW = 161
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -67,7 +70,6 @@ def state_fn(raw: dict) -> tuple:
     """
     gx = (raw.get("grid_x") or 0) // BUCKET_SIZE
     gz = (raw.get("grid_z") or 0) // BUCKET_SIZE
-    y_bucket = (raw.get("y") or 0) // Y_BUCKET_SIZE
     inventory = raw.get("inventory", {})
     wood_count = sum(
         count
@@ -79,7 +81,6 @@ def state_fn(raw: dict) -> tuple:
     return (
         gx,
         gz,
-        y_bucket,
         int(raw.get("health_bin", 3)),
         int(raw.get("food_bin", 3)),
         wood_bucket,
@@ -137,14 +138,13 @@ def reward_fn(old_state: tuple, action: int, new_state: tuple) -> float:
     if (new_gx, new_gz) != (old_gx, old_gz):
         reward += 0.3
 
-    # Vertical escape shaping. Climbing upward is useful when the bot is stuck
-    # underground or in a hole; moving downward is usually a riskier detour.
-    if new_y > old_y:
+    # Shape escape behavior: digging down tends to trap the bot, while the
+    # pillar-jump action is the intended way to climb out of holes.
+    if action in (ACTION_DIG_BELOW):
+        reward -= 3.0
+
+    if action == ACTION_CLIMB_UP:
         reward += 2.0
-        if old_y < 16:
-            reward += 1.0
-    elif new_y < old_y:
-        reward -= 1.0
 
     # One-time progress rewards for useful tech-tree state transitions.
     # These only fire when the state bit changes from False to True.
