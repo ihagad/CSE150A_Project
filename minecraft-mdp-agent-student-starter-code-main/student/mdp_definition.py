@@ -291,9 +291,8 @@ def terminal_fn(state: tuple, step_count: int) -> bool:
     step_count : int   — Steps taken this episode
     """
 
-    if state[STATE_HEALTH] == 0:
-        return True
-
+    # Do not end episodes early on low/critical health. The environment will
+    # truncate each episode at MAX_STEPS.
     return False
 
 
