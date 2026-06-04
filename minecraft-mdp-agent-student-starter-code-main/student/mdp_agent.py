@@ -476,6 +476,12 @@ def run():
               flush=True)
         state, info = env.reset()
         available = info.get("available_actions", frozenset(range(NUM_ACTIONS)))
+        
+        # If stuck: underground + low food + very few actions available
+        if state[2] < 14 and state[4] <= 1 and len(available) < 15:
+            print(f"  [stuck] Underground, low food, only {len(available)} actions — resetting to spawn...")
+            state, info = env.request_reset()
+            available = info.get("available_actions", frozenset(range(NUM_ACTIONS)))
         all_states.add(state)
         total_reward = 0.0
         done = False

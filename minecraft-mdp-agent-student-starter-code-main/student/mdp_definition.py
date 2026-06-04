@@ -127,7 +127,18 @@ def reward_fn(old_state: tuple, action: int, new_state: tuple) -> float:
 
     if new_health < old_health:
         reward -= 3.0
+    if new_food < old_food:
+        reward -= 1.0
 
+    if new_health == 0 and new_food <= 1:
+        reward -= 2.0
+
+    if new_y < 14 and new_state[4] <= 1:  # underground + low/no food
+        reward -= 5.0
+        if action in [162, 163]:  # mine_above, dig_above
+            reward += 2.0
+        if new_state[2] > old_state[2]:  # y increased
+            reward += 3.0
     # Penalize actions that fail to change the abstract state. This makes loops,
     # noops, and failed digging/placing less attractive to the planner.
     if old_state == new_state:
@@ -136,6 +147,9 @@ def reward_fn(old_state: tuple, action: int, new_state: tuple) -> float:
     # Exploration bonus when the bot reaches a different horizontal bucket.
     if (new_gx, new_gz) != (old_gx, old_gz):
         reward += 0.3
+
+    if (new_gx, new_gz) != (old_gx, old_gz) and (new_state[5] == 0 or not new_state[10]):
+        reward -= 0.5
 
     # Vertical escape shaping. Climbing upward is useful when the bot is stuck
     # underground or in a hole; moving downward is usually a riskier detour.
@@ -146,6 +160,13 @@ def reward_fn(old_state: tuple, action: int, new_state: tuple) -> float:
     elif new_y < old_y:
         reward -= 1.0
 
+    #prevent going down without planks and sticks
+    if new_y < old_y and not new_state[10]:
+        reward -= 2.0
+
+    if new_y < old_y and new_state[10]:
+        reward += 2.0
+    
     # One-time progress rewards for useful tech-tree state transitions.
     # These only fire when the state bit changes from False to True.
     if new_state[5] > old_state[5]:
@@ -163,10 +184,13 @@ def reward_fn(old_state: tuple, action: int, new_state: tuple) -> float:
     if not old_state[8] and new_state[8]:
         # Collected cobblestone/stone for climbing, furnaces, and stone tools.
         reward += 10.0
+    
+    if ((action == 4 and new_y < old_y) or (action in [5, 70])) and new_state[10] and not old_state[8]:
+        reward += 2.0 #reward for climbing up without a pickaxe
 
-    if not old_state[9] and new_state[9]:
+    if not old_state[9] and new_state[9] and new_state[6] and new_state[7]:
         # Reached a nearby crafting table, which enables larger recipes.
-        reward += 4.0
+        reward += 8.0
 
     if not old_state[10] and new_state[10]:
         # Obtained a wooden pickaxe tier tool.
@@ -192,6 +216,10 @@ def terminal_fn(state: tuple, step_count: int) -> bool:
     state      : tuple — Current state
     step_count : int   — Steps taken this episode
     """
+
+    if state[3] == 0:
+        return True
+
     return False
 
 
