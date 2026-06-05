@@ -56,6 +56,7 @@ ACTION_MINE_DIAMOND = 29
 ACTION_SMELT_COLLECT = 37
 ACTION_SMELT_IRON_START = 100
 ACTION_CRAFT_IRON_PICKAXE = 77
+ACTION_MINE_DOWN = 4
 
 STATE_GX = 0
 STATE_GZ = 1
@@ -65,11 +66,10 @@ STATE_WOOD_BUCKET = 4
 STATE_HAS_PLANKS = 5
 STATE_HAS_STICKS = 6
 STATE_HAS_STONE = 7
-STATE_HAS_RAW_IRON = 9
-STATE_HAS_TABLE_NEARBY = 11
-STATE_HAS_WOOD_PICKAXE = 12
-STATE_HAS_STONE_PICKAXE = 13
-STATE_HAS_IRON_PICKAXE = 14
+STATE_HAS_TABLE_NEARBY = 8
+STATE_HAS_WOOD_PICKAXE = 9
+STATE_HAS_STONE_PICKAXE = 10
+STATE_HAS_IRON_PICKAXE = 11
 
 
 def _inventory_has_any(inventory: dict, names: tuple) -> bool:
@@ -120,7 +120,6 @@ def state_fn(raw: dict) -> tuple:
         bool(raw.get("has_planks", False)),
         bool(raw.get("has_sticks", False)),
         bool(raw.get("has_stone", False)),
-        has_raw_iron,
         bool(raw.get("has_table_nearby", False)),
         inventory.get("wooden_pickaxe", 0) > 0,
         inventory.get("stone_pickaxe", 0) > 0,
@@ -188,11 +187,14 @@ def reward_fn(old_state: tuple, action: int, new_state: tuple) -> float:
 
     # Shape escape behavior: digging down tends to trap the bot, while the
     # pillar-jump action is the intended way to climb out of holes.
-    if action == ACTION_DIG_BELOW:
+    if action == (ACTION_DIG_BELOW) or action == STATE_HAS_IRON_PICKAXE:
         reward -= 3.0
-
+        
     if action == ACTION_CLIMB_UP:
-        reward += 2.0
+        reward += 3.0
+        
+    if action in (162, 163):
+        reward += 3.0
 
     # One-time progress rewards for useful tech-tree state transitions.
     # These only fire when the state bit changes from False to True.
