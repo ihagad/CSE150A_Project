@@ -41,6 +41,7 @@ import sys
 import time
 import pickle
 import warnings
+from collections import deque
 import numpy as np
 
 warnings.filterwarnings("ignore", message="Unverified HTTPS request")
@@ -59,6 +60,64 @@ SERVER_URL = os.environ.get("MDP_SERVER_URL", "https://localhost")
 BOT_NAME = os.environ.get("BOT_NAME", "my_bot")
 SAVE_DIR = os.path.join(os.path.dirname(__file__), "..", "results")
 SAVE_EVERY = 5   # write a pkl snapshot every N episodes
+
+STUCK_WINDOW = 25
+STUCK_CONFIRMATIONS = 3
+STUCK_MAX_SPREAD = 1.0
+STUCK_UNDERGROUND_Y = 50
+STUCK_LOW_ACTIONS = 15
+
+
+def _raw_position(raw):
+    """Return the bot's raw block position, or None if the bridge omits it."""
+    try:
+        return (
+            float(raw.get("x")),
+            float(raw.get("y")),
+            float(raw.get("z")),
+        )
+    except (TypeError, ValueError):
+        return None
+
+
+def _append_raw_position(position_history, raw):
+    position = _raw_position(raw)
+    if position is not None:
+        position_history.append(position)
+
+
+def _position_spread(position_history):
+    xs = [pos[0] for pos in position_history]
+    ys = [pos[1] for pos in position_history]
+    zs = [pos[2] for pos in position_history]
+    return (
+        max(xs) - min(xs),
+        max(ys) - min(ys),
+        max(zs) - min(zs),
+    )
+
+
+def _looks_stuck(raw, available, position_history):
+    """Conservative stuck detector for when a reset is better than waiting."""
+    if len(position_history) < STUCK_WINDOW:
+        return False
+
+    x_spread, y_spread, z_spread = _position_spread(position_history)
+    barely_moved = (
+        x_spread <= STUCK_MAX_SPREAD
+        and y_spread <= STUCK_MAX_SPREAD
+        and z_spread <= STUCK_MAX_SPREAD
+    )
+    if not barely_moved:
+        return False
+
+    y = raw.get("y")
+    underground = y is not None and y < STUCK_UNDERGROUND_Y
+    low_food = raw.get("food_bin", 3) <= 1
+    low_health = raw.get("health_bin", 3) <= 1
+    few_actions = len(available) < STUCK_LOW_ACTIONS
+
+    return underground and few_actions and (low_food or low_health)
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -476,17 +535,14 @@ def run():
               flush=True)
         state, info = env.reset()
         available = info.get("available_actions", frozenset(range(NUM_ACTIONS)))
-
-        # If stuck: underground + low food + very few actions available
-        # if state[2] < 14 and state[4] <= 1 and len(available) < 15:
-        #     print(f"  [stuck] Underground, low food, only {len(available)} actions — resetting to spawn...")
-        #     state, info = env.request_reset()
-        #     available = info.get("available_actions", frozenset(range(NUM_ACTIONS)))
         all_states.add(state)
         total_reward = 0.0
         done = False
 
         raw = info.get("raw_state") or env.get_raw_state()
+        position_history = deque(maxlen=STUCK_WINDOW)
+        stuck_checks = 0
+        _append_raw_position(position_history, raw)
         inv_preview = ", ".join(
             f"{name}×{count}"
             for name, count in sorted(
@@ -513,6 +569,7 @@ def run():
                 action = policy[state]
 
             next_state, reward, terminated, truncated, info = env.step(action)
+            step_info = info
             done = terminated or truncated
             next_available = info.get("available_actions", frozenset(range(NUM_ACTIONS)))
 
@@ -522,10 +579,34 @@ def run():
             total_reward += reward
             state = next_state
             available = next_available
+            raw = info.get("raw_state") or env.get_raw_state()
+            _append_raw_position(position_history, raw)
 
-            step = info.get("step", 0)
+            if _looks_stuck(raw, available, position_history):
+                stuck_checks += 1
+            else:
+                stuck_checks = 0
+
+            if stuck_checks >= STUCK_CONFIRMATIONS:
+                print(
+                    "  [stuck] no position progress underground with low "
+                    f"survival/resources; resetting to spawn from "
+                    f"({raw.get('x')}, {raw.get('y')}, {raw.get('z')})",
+                    flush=True,
+                )
+                state, info = env.request_reset()
+                available = info.get(
+                    "available_actions", frozenset(range(NUM_ACTIONS))
+                )
+                raw = info.get("raw_state") or env.get_raw_state()
+                position_history.clear()
+                _append_raw_position(position_history, raw)
+                stuck_checks = 0
+                all_states.add(state)
+
+            step = step_info.get("step", 0)
             if step <= 3 or step % 20 == 0 or done:
-                print(f"  step {step:3d}: {info.get('action_name', action):22s} "
+                print(f"  step {step:3d}: {step_info.get('action_name', action):22s} "
                       f"-> reward={reward:+.2f}  total={total_reward:+.2f}  "
                       f"state={next_state}", flush=True)
 
