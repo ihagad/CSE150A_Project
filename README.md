@@ -8,12 +8,6 @@
 - Ioanna Gkerdouki
 - Iha Gadiya
 
-## Dataset
-
-We used the Stack Overflow Developer Survey 2023 dataset from Kaggle:
-https://www.kaggle.com/datasets/mahdialfred/stack-overflow-developer-survey-2023
-
-Our cleaned dataset is in `cleaned_data/cleaned_stackoverflow_bn_data.csv`. The data cleaning work is in `src/data_cleaning.ipynb`, and the Bayesian Network code is in `src/bayesian_net.ipynb`.
 
 ## PEAS Analysis and Problem Background
 
@@ -35,6 +29,13 @@ P(ConvertedCompYearly | AISelect = yes)
 ```
 
 ## Data Preprocessing
+
+## Dataset
+
+We used the Stack Overflow Developer Survey 2023 dataset from Kaggle:
+https://www.kaggle.com/datasets/mahdialfred/stack-overflow-developer-survey-2023
+
+Our cleaned dataset is in `cleaned_data/cleaned_stackoverflow_bn_data.csv`. The data cleaning work is in `src/data_cleaning.ipynb`, and the Bayesian Network code is in `src/bayesian_net.ipynb`.
 
 We started with the full Stack Overflow survey and narrowed it down so that the final dataset was more consistent. We kept rows where:
 
