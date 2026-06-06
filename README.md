@@ -376,6 +376,139 @@ The BN and HMM performance numbers are not directly interchangeable because they
 
 The HMM also imposes assumptions the BN did not require. It assumes a meaningful row ordering, a first-order Markov dependency between hidden states, and emissions that depend only on the current hidden state. Since this survey is not truly longitudinal, our sequence is a career-progression proxy rather than a record of the same developers over time. The HMM is therefore useful for exploring latent regimes, but its transitions should not be interpreted as literal career transitions.
 
+## Markov Decision Process (MDP) — Minecraft Bot
+
+For the third model, we implemented a Markov Decision Process agent that learns to play Minecraft. The agent controls a bot that collects resources, crafts tools, and progresses through the Minecraft tech tree using reinforcement learning. The MDP code is in `minecraft-mdp-agent-student-starter-code-main/student/`.
+
+### MDP PEAS Analysis
+
+- **Performance measure:** Cumulative reward per episode; convergence of Policy Iteration and Value Iteration; successful progression through the Minecraft tech tree (wood → tools → mining).
+- **Environment:** A live Minecraft server where the bot observes position, inventory, health, and nearby blocks.
+- **Actuators:** The agent selects from 186 possible actions including movement, mining, crafting, and combat.
+- **Sensors:** Grid position, health bin, food bin, inventory contents, nearby blocks, and available actions.
+
+### MDP Formulation
+
+**State Space (S):**
+
+Our state is a 12-tuple representing the bot's situation:
+
+| Index | Feature | Description |
+|-------|---------|-------------|
+| 0-1 | `gx`, `gz` | Grid position (bucketed by 10 blocks) |
+| 2 | `health_bin` | Health level (0-3) |
+| 3 | `food_bin` | Food/hunger level (0-3) |
+| 4 | `wood_bucket` | Amount of wood logs (0-3) |
+| 5 | `has_planks` | Boolean: has planks in inventory |
+| 6 | `has_sticks` | Boolean: has sticks in inventory |
+| 7 | `has_stone` | Boolean: has cobblestone |
+| 8 | `has_table_nearby` | Boolean: crafting table within 4 blocks |
+| 9 | `has_wood_pickaxe` | Boolean: owns wooden pickaxe |
+| 10 | `has_stone_pickaxe` | Boolean: owns stone pickaxe |
+| 11 | `has_iron_pickaxe` | Boolean: owns iron pickaxe |
+
+**Action Space (A):**
+
+186 actions provided by the Minecraft environment, including movement (north, south, east, west), mining actions (mine_below, mine_forward, mine_coal, mine_iron, mine_diamond), crafting actions (craft_planks, craft_sticks, craft_wooden_pickaxe, craft_stone_pickaxe), and utility actions (climb_up, eat, chop_wood).
+
+**Reward Function R(s, a, s'):**
+
+We designed rewards to guide the bot through the Minecraft tech tree:
+
+| Action/Event | Reward |
+|--------------|-------:|
+| Base step cost | -0.1 |
+| Collect wood | +4.0 per bucket |
+| Craft planks (first time) | +8.0 |
+| Craft sticks | +6.0 |
+| Collect cobblestone | +10.0 |
+| Mine coal | +12.0 |
+| Craft wooden pickaxe | +15.0 |
+| Mine iron | +16.0 |
+| Smelt iron | +20.0 |
+| Craft stone pickaxe | +25.0 |
+| Craft iron pickaxe | +35.0 |
+| Mine diamond | +100.0 |
+| Losing health | -3.0 |
+| Digging down (trap risk) | -3.0 |
+| Climbing up (escape) | +3.0 |
+| No state change | -0.25 |
+
+**Discount Factor (γ):** 0.99
+
+**Transition Model T(s, a, s'):**
+
+We use count-based estimation from experience:
+
+```
+T̂(s,a,s') = count(s,a,s') / count(s,a)
+```
+
+The agent starts with a self-loop prior (assumes nothing changes) and updates the transition matrix as it observes real state transitions in the environment.
+
+### Policy Iteration
+
+Policy Iteration alternates between two phases until convergence:
+
+1. **Policy Evaluation:** Compute V^π for the current policy using the Bellman expectation equation:
+   ```
+   V^π(s) = Σ_{s'} T(s, π(s), s') · [R(s, π(s), s') + γ · V^π(s')]
+   ```
+
+2. **Policy Improvement:** Update the policy greedily based on the computed values:
+   ```
+   π'(s) = argmax_a Σ_{s'} T(s,a,s') · [R(s,a,s') + γ · V(s')]
+   ```
+
+The algorithm terminates when the policy stops changing, indicating convergence to the optimal policy.
+
+### Value Iteration
+
+Value Iteration directly computes optimal state values using the Bellman optimality equation:
+
+```
+V_{k+1}(s) = max_a [Σ_{s'} T(s,a,s') · (R(s,a,s') + γ · V_k(s'))]
+```
+
+The algorithm iterates until the value function converges (max change falls below a threshold), then extracts the greedy policy from the final values.
+
+### Training Setup
+
+- **Episodes:** 100 per training run
+- **Max steps per episode:** 500
+- **Checkpointing:** Every 5 episodes, the transition matrix and policy are saved to a pickle file
+- **Resume capability:** Training can be stopped and resumed from the latest checkpoint
+
+### Policy Analysis
+
+The learned policy follows the expected Minecraft progression:
+
+1. Find and chop wood (get_wood or chop_wood actions)
+2. Craft planks from wood
+3. Craft sticks from planks
+4. Place crafting table and craft wooden pickaxe
+5. Mine cobblestone with wooden pickaxe
+6. Craft stone pickaxe
+7. Mine iron ore with stone pickaxe
+8. Smelt iron and craft iron pickaxe
+9. Progress toward diamond mining
+
+The reward shaping successfully taught the bot to:
+- Avoid digging straight down (which can trap it in holes)
+- Use the climb_up action to escape when stuck
+- Prioritize tool progression over random exploration
+
+### MDP Reflection
+
+The MDP extends the probabilistic reasoning of the BN and HMM from prediction to decision making. While the BN models static conditional dependencies and the HMM models temporal sequences of observations, the MDP enables an agent to learn optimal actions through interaction with an environment.
+
+Key differences from BN and HMM:
+- **BN:** Models P(Y|X) for prediction; no actions or rewards
+- **HMM:** Models hidden state sequences; inference only, no control
+- **MDP:** Models how actions affect state transitions; learns a policy to maximize cumulative reward
+
+The MDP assumes the Markov property (future depends only on current state, not history) and requires a well-defined reward function. Unlike supervised learning in the BN, the MDP agent learns through trial and error, updating its transition model and policy as it explores the environment.
+
 ## Possible Improvements
 
 These are the main changes we would consider:
