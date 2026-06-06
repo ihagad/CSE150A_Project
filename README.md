@@ -30,14 +30,32 @@ Probabilistic modeling makes sense here because the relationship is uncertain. F
 P(ConvertedCompYearly | AISelect = yes)
 ```
 
-## Dataset
+## Dataset and Preprocessing
+
+### Dataset Source and Size
 
 We used the Stack Overflow Developer Survey 2023 dataset from Kaggle:
 https://www.kaggle.com/datasets/mahdialfred/stack-overflow-developer-survey-2023
 
 Our cleaned dataset is in `cleaned_data/cleaned_stackoverflow_bn_data.csv`. The data cleaning work is in `src/data_cleaning.ipynb`, and the Bayesian Network code is in `src/bayesian_net.ipynb`.
 
-## Data Preprocessing
+The Markov Decision Process component uses a Minecraft environment provided through the starter code repository available at: https://github.com/ucsd-cse150a-s26/minecraft-mdp-agent-student-starter-code.  Unlike the survey dataset, the Minecraft environment generates observations dynamically as the agent interacts with the world. 
+
+### Task Definition
+Each model addresses a different task:
+
+- **Bayesian Network (BN):** Predict a developer's compensation category, which we use as a proxy for programming skill, from observable survey features.
+
+- **Hidden Markov Model (HMM):** Infer a developer's latent seniority level (*junior*, *mid-level*, or *senior*) from observable survey responses.
+
+- **Markov Decision Process (MDP):** Learn a policy that maximizes cumulative reward in a Minecraft environment through sequential decision making.
+
+### Data Types 
+The Stack Overflow dataset contains primarily categorical variables after preprocessing. Several originally numeric variables, such as YearsCode, YearsCodePro, and ConvertedCompYearly, were discretized into categorical groups for use in the Bayesian Network and HMM.
+
+The Minecraft environment contains mixed observations including positional information, inventory information, health status, environmental features, and available actions. These observations are discretized into a finite state representation for the MDP.
+
+## Preprocessing
 
 We started with the full Stack Overflow survey and narrowed it down so that the final dataset was more consistent. We kept rows where:
 
