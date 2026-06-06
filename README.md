@@ -8,6 +8,8 @@
 - Ioanna Gkerdouki
 - Iha Gadiya
 
+## Project Overview
+This project explores three probabilistic modeling approaches: Bayesian Networks (BNs), Hidden Markov Models (HMMs), and Markov Decision Processes (MDPs). We demonstrate how each addresses a different aspect of reasoning under uncertainty. The Bayesian Network models the relationships among developer characteristics such as experience, AI tool usage, coding activities, and compensation, allowing us to perform probabilistic inference on developer outcomes. Building on this idea, the Hidden Markov Model introduces a latent seniority variable and captures how hidden career stages influence observable survey responses over a sequential career-progression ordering. Finally, the Markov Decision Process extends probabilistic reasoning from prediction to decision making by enabling an agent to learn optimal actions in a Minecraft environment through rewards, state transitions, and planning algorithms. Together, these three models illustrate a progression from static probabilistic inference (BN), to temporal probabilistic modeling (HMM), to sequential decision making under uncertainty (MDP).
 
 ## PEAS Analysis and Problem Background
 
