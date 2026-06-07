@@ -509,9 +509,28 @@ Key differences from BN and HMM:
 
 The MDP assumes the Markov property (future depends only on current state, not history) and requires a well-defined reward function. Unlike supervised learning in the BN, the MDP agent learns through trial and error, updating its transition model and policy as it explores the environment.
 
-## Possible Improvements
+### 5.4 Cross-Model Comparison
 
-These are the main changes we would consider:
+| Model | Task | Metric | Result |
+|---------|---------|---------|---------|
+| Bayesian Network (BN) | Predict compensation category from developer survey features | Accuracy | **34.85%** |
+| Majority Baseline | Predict most common compensation category | Accuracy | **29.52%** |
+| Hidden Markov Model (HMM) | Infer latent developer seniority states | Viterbi Accuracy (experience proxy) | **47.74%** |
+| Hidden Markov Model (HMM) | Sequence modeling | Log-Likelihood per Observation | **-4.2731** |
+| Markov Decision Process (MDP) | Learn an optimal Minecraft policy | Cumulative Reward | *See Section 5.3* |
+
+### Comparison of Modeling Approaches
+
+Each model captures a different aspect of uncertainty. The Bayesian Network models static relationships between observed variables and predicts compensation from developer characteristics. The Hidden Markov Model extends this by introducing a latent seniority state and capturing sequential patterns that the BN cannot represent. The Markov Decision Process goes a step further by modeling how actions influence future states and rewards, allowing an agent to learn optimal behavior through interaction with its environment.
+
+These models also make different assumptions. The BN assumes conditional independence based on the graph structure, making it interpretable but potentially missing important dependencies. The HMM assumes a first order Markov process and that observations depend only on the current hidden state. The MDP assumes the Markov property and requires a well designed reward function and sufficient exploration. While the MDP is the most flexible model, it is also the most computationally complex.
+
+Overall, the Markov Decision Process is our strongest model. The BN achieved 34.85% accuracy and the HMM achieved 47.74% Viterbi decoding accuracy, demonstrating successful probabilistic inference. However, the MDP extends beyond prediction by learning a policy that enables decision making. By using learned transition probabilities and rewards to plan actions, the MDP best demonstrates reasoning under uncertainty and serves as the most comprehensive model in the project.
+
+
+## Limitations & Future Work
+
+### Bayesian Network (BN)
 
 - Use a larger part of the survey instead of filtering to one company-size group. Right now `OrgSize` is constant, so it cannot help much.
 - Add smoothing to the CPT estimates. This would help with rare states like `YearsCode = low` and reduce unseen-state issues during testing.
@@ -521,7 +540,41 @@ These are the main changes we would consider:
 - Use cross-validation instead of only one train-test split.
 - Add more survey variables that may explain compensation, such as education, employment type, remote work, age, industry, and more specific location.
 - Consider a better skill proxy if one is available. Compensation is useful, but it is influenced by many non-skill factors.
-- For the HMM, use truly longitudinal data if available. That would make the transition matrix more meaningful than the current experience-sorted proxy sequence.
+
+### Hidden Markov Model (HMM)
+
+- Use truly longitudinal data if available. That would make the transition matrix more meaningful than the current experience-sorted proxy sequence.
+- Experiment with different numbers of hidden states to better capture variation in developer seniority.
+- Explore alternative emission representations and feature combinations to improve latent-state identification.
+- Compare multiple initialization strategies to reduce sensitivity to local optima during EM training.
+- Evaluate additional sequence-based metrics beyond decoded-state accuracy.
+
+### Markov Decision Process (MDP)
+
+- Incorporate additional state features, such as nearby resources and environmental hazards, to provide a richer representation of the environment.
+- Refine the reward function to better balance short-term rewards and long-term objectives while reducing dependence on manual reward shaping.
+- Experiment with alternative exploration strategies beyond the current ε-greedy approach.
+- Improve transition-model estimates for rarely visited states by increasing exploration and training time.
+- Compare Policy Iteration and Value Iteration more systematically in terms of convergence speed and policy quality.
+- Analyze learning curves, state visitation counts, and transition statistics to better understand the agent's learning behavior.
+
+## 6. Conclusion
+
+In this project, we applied three probabilistic modeling approaches to different problems. The Bayesian Network modeled relationships between developer survey features to predict compensation, the Hidden Markov Model inferred latent seniority states from survey responses, and the Markov Decision Process learned a policy for sequential decision making in a Minecraft environment.
+
+Of the three models, the Markov Decision Process was the strongest overall. While the Bayesian Network achieved 34.85% accuracy and the Hidden Markov Model achieved 47.74% Viterbi decoding accuracy, the MDP went beyond prediction by learning how actions affect future states and rewards. Through Policy Iteration and Value Iteration, the agent learned behaviors that supported resource gathering, tool crafting, and progression through the Minecraft technology tree.
+
+Our results demonstrate that probabilistic reasoning is valuable for handling uncertainty in both prediction and decision-making tasks. The BN captured uncertainty in variable relationships, the HMM modeled uncertainty in hidden states, and the MDP addressed uncertainty in environment dynamics and future outcomes. These approaches are especially useful when information is incomplete or outcomes are uncertain, though their effectiveness depends heavily on the quality of the data, model assumptions, and state representations.
+
+The key takeaway from this project is that probabilistic models provide powerful and flexible frameworks for reasoning, inference, and decision making under uncertainty, with each model offering unique strengths for different types of problems.
+
+## Statement of Collaboration 
+- **Lianna Lim**: 
+- **[Ved Panse]**: 
+- **[Ioanna Gkerdouki]**:
+- **[Iha Gadiya]**:
+- **[William Diego]**:
+
 
 ## References and Citations
 
@@ -531,3 +584,5 @@ These are the main changes we would consider:
 - SciPy chi-square contingency test documentation: https://docs.scipy.org/doc/scipy/reference/generated/scipy.stats.chi2_contingency.html
 - NetworkX documentation: https://networkx.org/
 - Matplotlib documentation: https://matplotlib.org/
+- - UCSD CSE 150A Minecraft MDP Agent Starter Code: https://github.com/ucsd-cse150a-s26/minecraft-mdp-agent-student-starter-code
+- NumPy documentation: https://numpy.org/doc/
