@@ -569,11 +569,12 @@ Our results demonstrate that probabilistic reasoning is valuable for handling un
 The key takeaway from this project is that probabilistic models provide powerful and flexible frameworks for reasoning, inference, and decision making under uncertainty, with each model offering unique strengths for different types of problems.
 
 ## Statement of Collaboration 
-- **Lianna Lim**: 
-- **[Ved Panse]**: 
-- **[Ioanna Gkerdouki]**:
-- **[Iha Gadiya]**:
-- **[William Diego]**:
+- **Lianna Lim**:
+- **Ved Panse**:
+- **Ioanna Gkerdouki**:
+- **Iha Gadiya**:
+- **William Diego**:
+
 
 
 ## References and Citations
