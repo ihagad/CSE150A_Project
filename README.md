@@ -571,7 +571,7 @@ The key takeaway from this project is that probabilistic models provide powerful
 ## Statement of Collaboration 
 - **Lianna Lim**:
 - **Ved Panse**:
-- **Ioanna Gkerdouki**:
+- **Ioanna Gkerdouki**: Wrote the MDP write-up section for the README, including the PEAS analysis, state space formulation, reward function documentation, and policy analysis. Contributed to the HMM milestone by writing the latent variable identification section explaining Developer Seniority as the hidden state.
 - **Iha Gadiya**:
 - **William Diego**:
 
