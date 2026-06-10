@@ -557,6 +557,30 @@ The reward shaping successfully taught the bot to:
 - Use the climb_up action to escape when stuck
 - Prioritize tool progression over random exploration
 
+#### Training Artifacts and Quantitative Results
+
+The generated MDP plots and metrics are committed under
+`minecraft-mdp-agent-student-starter-code-main/results/analysis/`.
+
+| Artifact | File |
+|---------|------|
+| Metrics summary | `sharpyew_kz_metrics_summary.md` |
+| Learning curve / cumulative reward | `sharpyew_kz_rewards.png` |
+| State and transition growth | `sharpyew_kz_growth.png` |
+| State visitation heatmap | `sharpyew_kz_state_heatmap.png` |
+| Per-episode metrics data | `sharpyew_kz_episode_metrics.csv` |
+| State heatmap data | `sharpyew_kz_state_heatmap.csv` |
+
+From the final training checkpoint (`sharpyew_kz_ep765.pkl`), the bot visited
+7,632 unique states and learned 374,389 transition statistics. The logged
+training run covered episodes 16 through 765. The best episode reward was
+1907.1, the recent 10-episode average reward was -51.9, and Policy Iteration
+and Value Iteration agreed on 7,506 out of 7,632 states (98.35%). As a baseline
+comparison, the first 50 high-exploration episodes averaged -1442.0 reward,
+while the last 50 learned-policy episodes averaged 2.1 reward. In model-based
+rollouts, the random policy baseline averaged -148.2 return, while the learned
+policy averaged 423.0 return.
+
 #### MDP Reflection
 
 The MDP extends the probabilistic reasoning of the BN and HMM from prediction to decision making. While the BN models static conditional dependencies and the HMM models temporal sequences of observations, the MDP enables an agent to learn optimal actions through interaction with an environment.
@@ -576,7 +600,7 @@ The MDP assumes the Markov property (future depends only on current state, not h
 | Majority Baseline | Predict most common compensation category | Accuracy | **29.52%** |
 | Hidden Markov Model (HMM) | Infer latent developer seniority states | Viterbi Accuracy (experience proxy) | **47.74%** |
 | Hidden Markov Model (HMM) | Sequence modeling | Log-Likelihood per Observation | **-4.2731** |
-| Markov Decision Process (MDP) | Learn an optimal Minecraft policy | Cumulative Reward | *See Section 5.3* |
+| Markov Decision Process (MDP) | Learn an optimal Minecraft policy | Model rollout return | **423.0 learned vs. -148.2 random baseline** |
 
 #### Comparison of Modeling Approaches
 
