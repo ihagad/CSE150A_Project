@@ -536,6 +536,8 @@ The BN and HMM performance numbers are not directly interchangeable because they
 
 The HMM also imposes assumptions the BN did not require. It assumes a meaningful row ordering, a first-order Markov dependency between hidden states, and emissions that depend only on the current hidden state. Since this survey is not truly longitudinal, our sequence is a career-progression proxy rather than a record of the same developers over time. The HMM is therefore useful for exploring latent regimes, but its transitions should not be interpreted as literal career transitions.
 
+The temporal structure provides information that the Bayesian Network cannot capture by modeling transitions between latent seniority states rather than treating each observation independently. Although the ordering is only a proxy for true longitudinal data, the results suggest that temporal information helps identify hidden career stage patterns.
+
 ### 5.3 MDP Results
 
 #### Policy Analysis
@@ -549,7 +551,7 @@ The learned policy follows the expected Minecraft progression:
 5. Mine cobblestone with wooden pickaxe
 6. Craft stone pickaxe
 7. Mine iron ore with stone pickaxe
-8. Smelt iron and craft iron pickaxe
+8. Smelt iron and progress toward craft iron pickaxe
 9. Progress toward diamond mining
 
 The reward shaping successfully taught the bot to:
@@ -613,16 +615,13 @@ The final training run covered 750 logged episodes and resulted in 7,632 unique 
 
 The heatmap indicates that the learned policy concentrated exploration within a relatively small region of the environment rather than exploring uniformly. This suggests that the agent repeatedly returned to areas associated with successful resource gathering and tool progression. While this behavior improved efficiency, it may also have limited discovery of rarer resources and deeper progression opportunities.
 
-#### MDP Reflection
+#### Interpretation
 
-The MDP extends the probabilistic reasoning of the BN and HMM from prediction to decision making. While the BN models static conditional dependencies and the HMM models temporal sequences of observations, the MDP enables an agent to learn optimal actions through interaction with an environment.
+The learned policy successfully mastered the early and middle stages of the Minecraft technology tree. The agent consistently learned to gather wood, craft planks and sticks, create wooden tools, mine cobblestone, and craft stone tools. Training artifacts also showed evidence of furnace usage and limited iron collection. The reward shaping encouraged the agent to avoid risky behaviors such as digging straight down, use the `climb_up` action when trapped, and prioritize resource collection and tool progression over random exploration.
 
-Key differences from BN and HMM:
-- **BN:** Models P(Y|X) for prediction; no actions or rewards
-- **HMM:** Models hidden state sequences; inference only, no control
-- **MDP:** Models how actions affect state transitions; learns a policy to maximize cumulative reward
+Despite these successes, the agent struggled to reliably reach the final stages of progression. No states containing iron pickaxes or diamonds were observed during training, indicating that sparse rewards, limited exploration of rare states, and the large tabular state space made deeper progression difficult. The state visitation heatmap further suggests that the learned policy concentrated exploration within a relatively small region of the environment, which improved efficiency but reduced opportunities to discover more advanced resources.
 
-The MDP assumes the Markov property (future depends only on current state, not history) and requires a well-defined reward function. Unlike supervised learning in the BN, the MDP agent learns through trial and error, updating its transition model and policy as it explores the environment.
+Overall, the results demonstrate that the agent learned meaningful resource-gathering and crafting behaviors while highlighting the challenges of long-horizon planning and sparse-reward environments.
 
 ### 5.4 Cross-Model Comparison
 
@@ -665,12 +664,12 @@ Overall, the Markov Decision Process is our strongest model. The BN achieved 34.
 
 #### Markov Decision Process (MDP)
 
-- Incorporate additional state features, such as nearby resources and environmental hazards, to provide a richer representation of the environment.
-- Refine the reward function to better balance short-term rewards and long-term objectives while reducing dependence on manual reward shaping.
-- Experiment with alternative exploration strategies beyond the current ε-greedy approach.
-- Improve transition-model estimates for rarely visited states by increasing exploration and training time.
-- Compare Policy Iteration and Value Iteration more systematically in terms of convergence speed and policy quality.
-- Analyze learning curves, state visitation counts, and transition statistics to better understand the agent's learning behavior.
+- Expand the state representation to include nearby resources and environmental hazards to improve decision making.
+- Refine the reward function to provide stronger incentives for iron and diamond progression.
+- Explore alternatives to ε-greedy exploration to improve discovery of rare states and resources.
+- Increase training time to improve transition estimates for infrequently visited states.
+- Compare Policy Iteration and Value Iteration in terms of convergence speed and policy quality.
+- Analyze learning curves and state-visitation patterns to better understand why the agent struggled to reach iron-pickaxe and diamond-level states.
 
 ## 6. Conclusion
 
@@ -683,7 +682,7 @@ Our results demonstrate that probabilistic reasoning is valuable for handling un
 The main takeaway from this project is that different probabilistic models are useful for different kinds of uncertainty. Bayesian Networks, Hidden Markov Models, and Markov Decision Processes each approach uncertainty in their own way, allowing us to perform prediction, infer hidden structure, and make decisions in various environments.
 
 ## 7. Statement of Collaboration 
-- **Lianna Lim**: Created inital BN model. Conducted chi-square independence testing and created visualizations for dataset exploration and Bayesian Network analysis. Wrote  code to cross check the EM algorithm for HMM and authored/edited the Problem Statement, Introduction, Cross-Model Comparison, Limitations & Future Work sections, and Conclusion.
+- **Lianna Lim**: Created inital BN model. Conducted chi-square independence testing and created visualizations for dataset exploration and Bayesian Network analysis. Wrote  code to cross check the EM algorithm for HMM and authored/edited the Problem Statement, Introduction, MDP results, Cross-Model Comparison, Limitations & Future Work sections, and Conclusion.
 - **Ved Panse**:
 - **Ioanna Gkerdouki**: Wrote the MDP write-up section for the README, including the PEAS analysis, state space formulation, reward function documentation, and policy analysis. Contributed to the HMM milestone by writing the latent variable identification section explaining Developer Seniority as the hidden state.
 - **Iha Gadiya**: Wrote sections of the final report README, specifically, MDP convergence criteria, exploration strategy, connection to HMM, BN and HMM improvements. Worked on the reward function for the bot to include picking up cobblestone and prevent digging deep. Contributed to the HMM milestone by specifiying latent variable application in the model. Worked on the accuracy and test functions for BN. 
