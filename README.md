@@ -367,7 +367,7 @@ Our initial epsilon value is 0.5. We implemented a decay function of :
 epsilon = max(0.05, epsilon * 0.995)
 ```
 
-with a minimum floor value of 0.5.
+with a minimum floor value of 0.05.
 
 #### Connection to HMM
 
