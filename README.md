@@ -667,3 +667,4 @@ The key takeaway from this project is that probabilistic models provide powerful
 - Matplotlib documentation: https://matplotlib.org/
 - UCSD CSE 150A Minecraft MDP Agent Starter Code: https://github.com/ucsd-cse150a-s26/minecraft-mdp-agent-student-starter-code
 - NumPy documentation: https://numpy.org/doc/
+- Pandas documentation: https://pandas.pydata.org/docs/
