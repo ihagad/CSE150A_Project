@@ -655,7 +655,7 @@ The key takeaway from this project is that probabilistic models provide powerful
 - **Ved Panse**:
 - **Ioanna Gkerdouki**: Wrote the MDP write-up section for the README, including the PEAS analysis, state space formulation, reward function documentation, and policy analysis. Contributed to the HMM milestone by writing the latent variable identification section explaining Developer Seniority as the hidden state.
 - **Iha Gadiya**: Wrote sections of the final report README, specifically, MDP convergence criteria, exploration strategy, connection to HMM, BN and HMM improvements. Worked on the reward function for the bot to include picking up cobblestone and prevent digging deep. Contributed to the HMM milestone by specifiying latent variable application in the model. Worked on the accuracy and test functions for BN. 
-- **William Diego**:
+- **William Diego**: Final project: Implemented rewards, states, policy iteration and value iteration. Project 2: inference step. Project 1: data cleanign and discritization.
 
 ## 8. References and Citations
 
