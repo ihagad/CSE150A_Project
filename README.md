@@ -680,7 +680,7 @@ Of the three models, the Markov Decision Process was the strongest overall. Whil
 
 Our results demonstrate that probabilistic reasoning is valuable for handling uncertainty in both prediction and decision-making tasks. The BN captured uncertainty in variable relationships, the HMM modeled uncertainty in hidden states, and the MDP addressed uncertainty in environment dynamics and future outcomes. These approaches are especially useful when information is incomplete or outcomes are uncertain, though their effectiveness depends heavily on the quality of the data, model assumptions, and state representations.
 
-The key takeaway from this project is that probabilistic models provide powerful and flexible frameworks for reasoning, inference, and decision making under uncertainty, with each model offering unique strengths for different types of problems.
+The main takeaway from this project is that different probabilistic models are useful for different kinds of uncertainty. Bayesian Networks, Hidden Markov Models, and Markov Decision Processes each approach uncertainty in their own way, allowing us to perform prediction, infer hidden structure, and make decisions in various environments.
 
 ## 7. Statement of Collaboration 
 - **Lianna Lim**: Created inital BN model. Conducted chi-square independence testing and created visualizations for dataset exploration and Bayesian Network analysis. Wrote  code to cross check the EM algorithm for HMM and authored/edited the Problem Statement, Introduction, Cross-Model Comparison, Limitations & Future Work sections, and Conclusion.
