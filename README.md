@@ -581,6 +581,38 @@ while the last 50 learned-policy episodes averaged 2.1 reward. In model-based
 rollouts, the random policy baseline averaged -148.2 return, while the learned
 policy averaged 423.0 return.
 
+#### Learning Curve
+
+<p align="center">
+  <img src="minecraft-mdp-agent-student-starter-code-main/results/analysis/sharpyew_kz_rewards.png" width="800">
+</p>
+
+**Figure 1.** Learning curve showing the 10-episode moving average reward (blue) and epsilon exploration rate (red) throughout training.
+
+##### Learning Curve Analysis
+
+The learning curve demonstrates that training was initially highly variable as the agent explored the environment. Early episodes included both catastrophic failures (down to -12,750 reward) and highly successful trajectories (up to 1,907 reward). As exploration decreased and the transition model expanded, performance became more stable and the learned policy increasingly outperformed the early high-exploration baseline.
+
+#### Exploration Statistics
+
+<p align="center">
+  <img src="minecraft-mdp-agent-student-starter-code-main/results/analysis/sharpyew_kz_growth.png" width="800">
+</p>
+
+**Figure 2.** Growth in discovered states and learned transitions throughout training.
+
+The final training run covered 750 logged episodes and resulted in 7,632 unique discovered states and 374,389 recorded transitions. State discovery increased rapidly during early exploration and continued throughout training as the agent encountered new regions of the environment. The high agreement rate between Policy Iteration and Value Iteration (98.35%) indicates that both planning methods converged to nearly identical policies.
+
+#### State Visitation Analysis
+
+<p align="center">
+  <img src="minecraft-mdp-agent-student-starter-code-main/results/analysis/sharpyew_kz_state_heatmap.png" width="700">
+</p>
+
+**Figure 3.** State visitation heatmap showing where the agent spent most of its time during training.
+
+The heatmap indicates that the learned policy concentrated exploration within a relatively small region of the environment rather than exploring uniformly. This suggests that the agent repeatedly returned to areas associated with successful resource gathering and tool progression. While this behavior improved efficiency, it may also have limited discovery of rarer resources and deeper progression opportunities.
+
 #### MDP Reflection
 
 The MDP extends the probabilistic reasoning of the BN and HMM from prediction to decision making. While the BN models static conditional dependencies and the HMM models temporal sequences of observations, the MDP enables an agent to learn optimal actions through interaction with an environment.
